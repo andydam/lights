@@ -61,6 +61,7 @@ export class BluetoothLED extends EventEmitter {
   onPeripheralDisconnect = async (): Promise<void> => {
     this.emit('ble:disconnect');
     if (this.disconnectedCalled) {
+      this.emit('disconnect');
       noble.removeListener('disconnect', this.onPeripheralDisconnect);
       return;
     }
