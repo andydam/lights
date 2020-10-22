@@ -69,7 +69,7 @@ export class BluetoothLED extends EventEmitter {
 
   findAndConnectToPeripheral = async (
     peripheral: noble.Peripheral,
-  ): Promise<void> => {
+  ): Promise<boolean> => {
     console.log(
       `found device ${peripheral.address} - ${JSON.stringify(
         peripheral.advertisement,
@@ -77,7 +77,7 @@ export class BluetoothLED extends EventEmitter {
     );
 
     if (peripheral.address !== this.address) {
-      return;
+      return false;
     }
 
     console.log('found matching device');
@@ -86,14 +86,25 @@ export class BluetoothLED extends EventEmitter {
     this.peripheral = peripheral;
     await this.connectToPeripheral();
     this.peripheral.on('disconnect', this.onPeripheralDisconnect);
+    return true;
   };
 
-  start(): void {
+  start(): Promise<void> {
     this.disconnectedCalled = false;
-    noble.on('discover', this.findAndConnectToPeripheral);
 
-    process.nextTick(() => {
-      noble.startScanning([], false);
+    return new Promise((resolve) => {
+      noble.on('discover', async (peripheral: noble.Peripheral) => {
+        const foundAndConnected = await this.findAndConnectToPeripheral(
+          peripheral,
+        );
+        if (foundAndConnected) {
+          resolve();
+        }
+      });
+
+      process.nextTick(() => {
+        noble.startScanning([], false);
+      });
     });
   }
 
