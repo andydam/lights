@@ -150,6 +150,10 @@ export class BluetoothLED extends EventEmitter {
 
   async setColor(color: string): Promise<void> {
     const { r, g, b, alpha } = Color.getColor(color);
-    await this.send(LedCommand.COLOR, [LedMode.MANUAL, r, g, b, alpha]);
+    const payload = [LedMode.MANUAL, r, g, b];
+    if (alpha) {
+      payload.push(alpha);
+    }
+    await this.send(LedCommand.COLOR, payload);
   }
 }
