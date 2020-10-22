@@ -142,7 +142,7 @@ export class BluetoothLED extends EventEmitter {
 
   async setBrightness(value: number): Promise<void> {
     const brightness = value / 100;
-    if (value > 1 || value < 0) {
+    if (brightness > 1 || brightness < 0) {
       throw new Error(`invalid brightness ${value}!`);
     }
     await this.send(LedCommand.BRIGHTNESS, Math.floor(brightness * 0xff));
