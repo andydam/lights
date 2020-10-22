@@ -34,7 +34,7 @@ export class BluetoothLED extends EventEmitter {
     this.address = address;
   }
 
-  async connectToPeripheral(): Promise<void> {
+  async connectToPeripheral(reconnect: boolean = false): Promise<void> {
     if (!this.peripheral) {
       throw new Error('peripheral not found yet!');
     }
@@ -50,7 +50,7 @@ export class BluetoothLED extends EventEmitter {
         continue;
       }
 
-      setTimeout(() => this.emit('reconnected'), 500);
+      setTimeout(() => this.emit(reconnect ? 'reconnected' : 'connected'), 500);
       this.characteristic = characteristic;
       return;
     }
@@ -58,28 +58,35 @@ export class BluetoothLED extends EventEmitter {
     throw new Error('characteristic not found!');
   }
 
-  async onPeripheralDisconnect(): Promise<void> {
+  onPeripheralDisconnect = async (): Promise<void> => {
     this.emit('ble:disconnect');
     if (this.disconnectedCalled) {
       noble.removeListener('disconnect', this.onPeripheralDisconnect);
       return;
     }
-    await this.connectToPeripheral();
-  }
+    await this.connectToPeripheral(true);
+  };
 
-  async findAndConnectToPeripheral(
+  findAndConnectToPeripheral = async (
     peripheral: noble.Peripheral,
-  ): Promise<void> {
+  ): Promise<void> => {
+    console.log(
+      `found device ${peripheral.address} - ${JSON.stringify(
+        peripheral.advertisement,
+      )}`,
+    );
+
     if (peripheral.address !== this.address) {
       return;
     }
 
+    console.log('found matching device');
     await noble.stopScanningAsync();
     noble.removeListener('discover', this.findAndConnectToPeripheral);
     this.peripheral = peripheral;
     await this.connectToPeripheral();
     this.peripheral.on('disconnect', this.onPeripheralDisconnect);
-  }
+  };
 
   start(): void {
     this.disconnectedCalled = false;
