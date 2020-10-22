@@ -1,0 +1,9 @@
+{
+  "exec": "yarn build && node --inspect=0.0.0.0:7000 --nolazy ./dist/index.js",
+  "ignore": ["'*.test.ts"],
+  "watch": ["./src"],
+  "verbose": true,
+  "legacyWatch": true,
+  "ext": "ts",
+  "signal": "SIGTERM"
+}
