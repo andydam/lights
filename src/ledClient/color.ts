@@ -11,7 +11,7 @@ export interface Color {
 ////////////////////////////////////////////////////////////
 /// PRIVATE
 
-const simpleColors: { [key: string]: string | undefined } = {
+export const simpleColors: { [key: string]: string | undefined } = {
   aliceblue: 'f0f8ff',
   antiquewhite: 'faebd7',
   aqua: '00ffff',
