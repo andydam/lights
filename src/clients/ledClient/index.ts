@@ -120,7 +120,7 @@ export class BluetoothLED extends EventEmitter {
     noble.removeListener('disconnect', this.onPeripheralDisconnect);
   }
 
-  async send(inputCmd: any, payload: any): Promise<void> {
+  async send(inputCmd: number, payload: number | number[]): Promise<void> {
     if (!this.characteristic) {
       throw new Error('characteristic not found!');
     }
@@ -128,9 +128,7 @@ export class BluetoothLED extends EventEmitter {
     const cmd = inputCmd & 0xff;
 
     const preChecksumFrame = Buffer.concat([
-      // @ts-ignore
       Buffer.from([0x33, cmd].flat()),
-      // @ts-ignore
       Buffer.from([payload].flat()),
     ]);
     const preChecksumPaddingFrame = Buffer.concat([
@@ -138,7 +136,6 @@ export class BluetoothLED extends EventEmitter {
       Buffer.from(new Array(19 - preChecksumFrame.length).fill(0)),
     ]);
     let checksum = 0;
-    // @ts-ignore
     for (const i of preChecksumPaddingFrame) {
       checksum ^= i;
     }
