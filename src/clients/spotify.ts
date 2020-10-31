@@ -88,7 +88,10 @@ const sleep = (delay: number): Promise<void> =>
 
 interface SpotifyEvents {
   trackChange: (track: SpotifyApi.SingleTrackResponse) => void;
-  interval: (kind: keyof AudioAnalysis, interval: TimeInterval) => void;
+  interval: <T extends keyof AudioAnalysisWithInterval>(
+    kind: T,
+    interval: AudioAnalysisWithInterval[T]['intervals'][0],
+  ) => void;
 }
 
 export class Spotify extends TypedEmitter<SpotifyEvents> {
@@ -254,7 +257,7 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
 
     while (this.currentTrackProgress < this.currentTrack.duration_ms) {
       this.currentTrackProgress = Date.now() - startTime;
-      await sleep(10);
+      await sleep(500);
       if ((this.currentTrackProgress / 100) % 1 === 0) {
         console.log(
           `current track progress ${this.currentTrackProgress / 1000}s : ${
