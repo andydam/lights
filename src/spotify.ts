@@ -80,11 +80,15 @@ const normalizeIntervals = <T extends TimeInterval>(
   }));
 };
 
+const sleep = (delay: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, delay));
+
 ////////////////////////////////////////////////////////////
 /// PUBLIC
 
 interface SpotifyEvents {
   trackChange: (track: SpotifyApi.SingleTrackResponse) => void;
+  interval: (kind: keyof AudioAnalysis, interval: TimeInterval) => void;
 }
 
 export class Spotify extends TypedEmitter<SpotifyEvents> {
@@ -115,6 +119,78 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
       clientId,
       clientSecret,
     });
+  }
+
+  private _getInterval<T extends keyof AudioAnalysisWithInterval>(
+    kind: T,
+  ): AudioAnalysisWithInterval[T] {
+    if (!this.currentTrackAnalysis) {
+      throw new Error('current track not set!');
+    }
+
+    return this.currentTrackAnalysis[kind];
+  }
+
+  private _getActiveInterval<T extends keyof AudioAnalysisWithInterval>(
+    kind: T,
+  ): AudioAnalysisWithInterval[T]['intervals'][0] {
+    const interval = this._getInterval(kind);
+    return interval.intervals[interval.activeIndex];
+  }
+
+  private _calculateNextTimeout(kind: keyof AudioAnalysis): number {
+    const activeInterval = this._getActiveInterval(kind);
+
+    return (
+      activeInterval.duration -
+      (this.currentTrackProgress - activeInterval.start)
+    );
+  }
+
+  private _incrementInterval(kind: keyof AudioAnalysis): void {
+    const interval = this._getInterval(kind);
+
+    if (interval.activeIndex === interval.intervals.length - 1) {
+      return;
+    }
+
+    this._stageInterval(kind);
+
+    interval.activeIndex += 1;
+  }
+
+  private _fireInterval(kind: keyof AudioAnalysis): void {
+    const activeInterval = this._getActiveInterval(kind);
+
+    this.emit('interval', kind, activeInterval);
+
+    this._incrementInterval(kind);
+  }
+
+  private _stageInterval(kind: keyof AudioAnalysis): void {
+    const interval = this._getInterval(kind);
+
+    interval.nextIntervalTimeout = setTimeout(
+      () => this._fireInterval(kind),
+      this._calculateNextTimeout(kind),
+    );
+  }
+
+  private _syncInterval(kind: keyof AudioAnalysis): void {
+    const interval = this._getInterval(kind);
+    const { intervals } = interval;
+
+    for (let i = interval.activeIndex; i < intervals.length; i += 1) {
+      if (
+        this.currentTrackProgress >= intervals[i].start &&
+        this.currentTrackProgress < intervals[i + 1].start
+      ) {
+        interval.activeIndex = i;
+        break;
+      }
+    }
+
+    this._stageInterval(kind);
   }
 
   async getTrack(trackId: string): Promise<void> {
@@ -156,5 +232,20 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
     };
     console.log(`all track info for ${track.name} loaded`);
     this.emit('trackChange', track);
+  }
+
+  async startTrack(): Promise<void> {
+    if (!this.currentTrack) {
+      throw new Error('current track not set!');
+    }
+
+    const startTime = Date.now();
+    this._syncInterval('beats');
+
+    while (this.currentTrackProgress < this.currentTrack.duration_ms) {
+      this.currentTrackProgress = Date.now() - startTime;
+      await sleep(10);
+      console.log(this.currentTrackProgress);
+    }
   }
 }
