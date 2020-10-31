@@ -3,6 +3,8 @@
 import { TypedEmitter } from 'tiny-typed-emitter';
 import spotify from 'spotify-web-api-node';
 
+import { sleep } from '../utils';
+
 ////////////////////////////////////////////////////////////
 /// INTERFACES
 
@@ -79,9 +81,6 @@ const normalizeIntervals = <T extends TimeInterval>(
     duration: interval.start * 1000,
   }));
 };
-
-const sleep = (delay: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, delay));
 
 ////////////////////////////////////////////////////////////
 /// PUBLIC

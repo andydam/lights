@@ -1,6 +1,8 @@
 import * as d3Interpolate from 'd3-interpolate';
 import { TypedEmitter } from 'tiny-typed-emitter';
 
+import { sleep } from '../../utils';
+
 ////////////////////////////////////////////////////////////
 /// INTERFACES
 
@@ -15,9 +17,6 @@ interface BaseEvents {
 /// PRIVATE
 
 const roundUpToNearest5 = (x: number): number => Math.ceil(x / 5) * 5;
-
-const sleep = (delay: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, delay));
 
 ////////////////////////////////////////////////////////////
 /// PUBLIC
