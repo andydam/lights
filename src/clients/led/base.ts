@@ -24,7 +24,7 @@ const roundUpToNearest5 = (x: number): number => Math.ceil(x / 5) * 5;
 export abstract class Base extends TypedEmitter<BaseEvents> {
   address: string;
 
-  brightnessInterval = 5;
+  brightnessInterval = 0.05;
   colorSteps = 20;
   currentBrightness: number | null = null;
   currentColor: string | null = null;
@@ -51,8 +51,11 @@ export abstract class Base extends TypedEmitter<BaseEvents> {
       return this.setBrightness(brightness);
     }
 
-    const currentBrightness = roundUpToNearest5(this.currentBrightness);
-    const desiredBrightness = roundUpToNearest5(brightness);
+    const currentBrightness =
+      roundUpToNearest5(this.currentBrightness * 100) / 100;
+    const desiredBrightness = roundUpToNearest5(brightness * 100) / 100;
+    console.log(currentBrightness);
+    console.log(desiredBrightness);
 
     const interval =
       brightness > this.currentBrightness
@@ -62,7 +65,8 @@ export abstract class Base extends TypedEmitter<BaseEvents> {
       (currentBrightness - desiredBrightness) / this.brightnessInterval;
 
     for (let i = 0; i < numIntervals; i += 1) {
-      await this.setBrightness(desiredBrightness + interval * i);
+      await this.setBrightness(currentBrightness + interval * i);
+      await sleep(50);
     }
     this.currentBrightness = brightness;
   }
