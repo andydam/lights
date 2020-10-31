@@ -240,12 +240,28 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
     }
 
     const startTime = Date.now();
-    this._syncInterval('beats');
+
+    const intervals: (keyof AudioAnalysis)[] = [
+      'bars',
+      'beats',
+      'sections',
+      'segments',
+      'tatums',
+    ];
+    for (const interval of intervals) {
+      this._syncInterval(interval);
+    }
 
     while (this.currentTrackProgress < this.currentTrack.duration_ms) {
       this.currentTrackProgress = Date.now() - startTime;
       await sleep(10);
-      console.log(this.currentTrackProgress);
+      if ((this.currentTrackProgress / 100) % 1 === 0) {
+        console.log(
+          `current track progress ${this.currentTrackProgress / 1000}s : ${
+            this.currentTrack.duration_ms / 1000
+          }s`,
+        );
+      }
     }
   }
 }
