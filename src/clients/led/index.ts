@@ -1,7 +1,7 @@
 import noble from '@abandonware/noble';
 
 import * as Color from './color';
-import { EventEmitter } from 'events';
+import { Base } from './base';
 
 ////////////////////////////////////////////////////////////
 /// PRIVATE
@@ -23,18 +23,14 @@ const UUID_CONTROL_CHARACTERISTIC = '000102030405060708090a0b0c0d2b11';
 ////////////////////////////////////////////////////////////
 /// PUBLIC
 
-export class BluetoothLED extends EventEmitter {
-  address: string;
+export class BluetoothLED extends Base {
   characteristic?: noble.Characteristic;
   disconnectedCalled = false;
   peripheral?: noble.Peripheral;
 
-  constructor(address: string) {
-    super();
-    this.address = address;
-  }
-
-  async connectToPeripheral(reconnect: boolean = false): Promise<void> {
+  private async _connectToPeripheral(
+    reconnect: boolean = false,
+  ): Promise<void> {
     if (!this.peripheral) {
       throw new Error('peripheral not found yet!');
     }
@@ -58,17 +54,17 @@ export class BluetoothLED extends EventEmitter {
     throw new Error('characteristic not found!');
   }
 
-  onPeripheralDisconnect = async (): Promise<void> => {
-    this.emit('ble:disconnect');
+  private _onPeripheralDisconnect = async (): Promise<void> => {
+    this.emit('deviceDisconnected');
     if (this.disconnectedCalled) {
-      this.emit('disconnect');
-      noble.removeListener('disconnect', this.onPeripheralDisconnect);
+      this.emit('disconnected');
+      noble.removeListener('disconnected', this._onPeripheralDisconnect);
       return;
     }
-    await this.connectToPeripheral(true);
+    await this._connectToPeripheral(true);
   };
 
-  findAndConnectToPeripheral = async (
+  private _findAndConnectToPeripheral = async (
     peripheral: noble.Peripheral,
   ): Promise<boolean> => {
     console.log(
@@ -83,44 +79,17 @@ export class BluetoothLED extends EventEmitter {
 
     console.log('found matching device');
     await noble.stopScanningAsync();
-    noble.removeListener('discover', this.findAndConnectToPeripheral);
+    noble.removeListener('discover', this._findAndConnectToPeripheral);
     this.peripheral = peripheral;
-    await this.connectToPeripheral();
-    this.peripheral.on('disconnect', this.onPeripheralDisconnect);
+    await this._connectToPeripheral();
+    this.peripheral.on('disconnect', this._onPeripheralDisconnect);
     return true;
   };
 
-  start(): Promise<void> {
-    this.disconnectedCalled = false;
-
-    return new Promise((resolve) => {
-      noble.on('discover', async (peripheral: noble.Peripheral) => {
-        const foundAndConnected = await this.findAndConnectToPeripheral(
-          peripheral,
-        );
-        if (foundAndConnected) {
-          resolve();
-        }
-      });
-
-      process.nextTick(() => {
-        noble.startScanning([], false);
-      });
-    });
-  }
-
-  async disconnect(): Promise<void> {
-    if (!this.peripheral) {
-      throw new Error('peripheral not found yet!');
-    }
-
-    this.disconnectedCalled = true;
-    await this.peripheral.disconnectAsync();
-    noble.removeListener('discover', this.findAndConnectToPeripheral);
-    noble.removeListener('disconnect', this.onPeripheralDisconnect);
-  }
-
-  async send(inputCmd: number, payload: number | number[]): Promise<void> {
+  private async _send(
+    inputCmd: number,
+    payload: number | number[],
+  ): Promise<void> {
     if (!this.characteristic) {
       throw new Error('characteristic not found!');
     }
@@ -145,8 +114,38 @@ export class BluetoothLED extends EventEmitter {
     );
   }
 
-  async setState(state: boolean): Promise<void> {
-    await this.send(LedCommand.POWER, state ? 0x1 : 0x0);
+  start(): Promise<void> {
+    this.disconnectedCalled = false;
+
+    return new Promise((resolve) => {
+      noble.on('discover', async (peripheral: noble.Peripheral) => {
+        const foundAndConnected = await this._findAndConnectToPeripheral(
+          peripheral,
+        );
+        if (foundAndConnected) {
+          resolve();
+        }
+      });
+
+      process.nextTick(() => {
+        noble.startScanning([], false);
+      });
+    });
+  }
+
+  async disconnect(): Promise<void> {
+    if (!this.peripheral) {
+      throw new Error('peripheral not found yet!');
+    }
+
+    this.disconnectedCalled = true;
+    await this.peripheral.disconnectAsync();
+    noble.removeListener('discover', this._findAndConnectToPeripheral);
+    noble.removeListener('disconnect', this._onPeripheralDisconnect);
+  }
+
+  async setPower(power: boolean): Promise<void> {
+    await this._send(LedCommand.POWER, power ? 0x1 : 0x0);
   }
 
   async setBrightness(value: number): Promise<void> {
@@ -154,11 +153,11 @@ export class BluetoothLED extends EventEmitter {
     if (brightness > 1 || brightness < 0) {
       throw new Error(`invalid brightness ${value}!`);
     }
-    await this.send(LedCommand.BRIGHTNESS, Math.floor(brightness * 0xff));
+    await this._send(LedCommand.BRIGHTNESS, Math.floor(brightness * 0xff));
   }
 
   async setColor(color: string): Promise<void> {
     const { r, g, b } = Color.getColor(color);
-    await this.send(LedCommand.COLOR, [LedMode.MANUAL, r, g, b]);
+    await this._send(LedCommand.COLOR, [LedMode.MANUAL, r, g, b]);
   }
 }
