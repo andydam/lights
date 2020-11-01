@@ -23,7 +23,7 @@ export abstract class Base extends TypedEmitter<BaseEvents> {
   address: string;
 
   brightnessInterval = 0.05;
-  colorSteps = 20;
+  colorSteps = 500;
   currentBrightness: number | null = null;
   currentColor: string | null = null;
 
