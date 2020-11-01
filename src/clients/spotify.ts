@@ -97,6 +97,7 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
   clientId: string;
   clientSecret: string;
 
+  currentTrackOffsetThreshold: number = 100;
   currentTrack: SpotifyApi.SingleTrackResponse | null = null;
   currentTrackAnalysis: AudioAnalysisWithInterval | null = null;
   currentTrackProgress: number = 0;
@@ -211,28 +212,35 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
 
   private async _getCurrentlyPlaying(): Promise<void> {
     const {
-      body: currentPlaying,
+      body: { item, is_playing: isPlaying, progress_ms: progressMs },
     } = await this.client.getMyCurrentPlayingTrack();
 
-    if (
-      !currentPlaying.is_playing ||
-      !currentPlaying.item ||
-      currentPlaying.progress_ms === null
-    ) {
+    if (!isPlaying || !item || progressMs === null) {
       console.log('nothing playing on spotify');
       this._stopTrack();
+      this._clearTrack();
       return this._pingSpotify();
     }
 
-    if (!this.currentTrack || this.currentTrack.id !== currentPlaying.item.id) {
+    if (!this.currentTrack || this.currentTrack.id !== item.id) {
       console.log('no track currently playing or wrong track');
       this._stopTrack();
-      await this._getTrack(currentPlaying.item.id);
-      this._startTrack(currentPlaying.progress_ms);
+      this._clearTrack();
+      await this._getTrack(item.id);
+      this._startTrack(progressMs);
       return this._pingSpotify();
     }
 
-    console.log('current track in sync');
+    if (
+      Math.abs(this.currentTrackProgress - progressMs) >
+      this.currentTrackOffsetThreshold
+    ) {
+      console.log('current track out of sync');
+      this._stopTrack();
+      this._startTrack(progressMs);
+    } else {
+      console.log('current track in sync');
+    }
     return this._pingSpotify();
   }
 
@@ -255,7 +263,9 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
         }
       }
     }
+  }
 
+  private _clearTrack(): void {
     this.currentTrack = null;
     this.currentTrackAnalysis = null;
     this.currentTrackProgress = 0;
