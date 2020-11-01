@@ -3,8 +3,6 @@
 import { TypedEmitter } from 'tiny-typed-emitter';
 import spotify from 'spotify-web-api-node';
 
-import { sleep } from '../utils';
-
 ////////////////////////////////////////////////////////////
 /// INTERFACES
 
@@ -102,6 +100,8 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
   currentTrack: SpotifyApi.SingleTrackResponse | null = null;
   currentTrackAnalysis: AudioAnalysisWithInterval | null = null;
   currentTrackProgress: number = 0;
+  currentTrackProgressInterval: NodeJS.Timer | null = null;
+  currentTrackStartTime: number = 0;
 
   constructor(args: {
     accessToken: string;
@@ -195,6 +195,14 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
     this._stageInterval(kind);
   }
 
+  private _calculateTrackProgress(): void {
+    if (!this.currentTrackStartTime) {
+      throw new Error("track hasn't started!");
+    }
+
+    this.currentTrackProgress = Date.now() - this.currentTrackStartTime;
+  }
+
   async getTrack(trackId: string): Promise<void> {
     console.log(`getting track info for trackId ${trackId}...`);
     const { body: track } = await this.client.getTrack(trackId);
@@ -241,7 +249,7 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
       throw new Error('current track not set!');
     }
 
-    const startTime = Date.now();
+    this.currentTrackStartTime = Date.now();
 
     const intervals: (keyof AudioAnalysis)[] = [
       'bars',
@@ -254,16 +262,9 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
       this._syncInterval(interval);
     }
 
-    while (this.currentTrackProgress < this.currentTrack.duration_ms) {
-      this.currentTrackProgress = Date.now() - startTime;
-      await sleep(500);
-      if ((this.currentTrackProgress / 100) % 1 === 0) {
-        console.log(
-          `current track progress ${this.currentTrackProgress / 1000}s : ${
-            this.currentTrack.duration_ms / 1000
-          }s`,
-        );
-      }
-    }
+    this.currentTrackProgressInterval = setInterval(
+      () => this._calculateTrackProgress(),
+      10,
+    );
   }
 }
