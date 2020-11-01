@@ -211,16 +211,19 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
   }
 
   private async _getCurrentlyPlaying(): Promise<void> {
+    const now = Date.now();
     const {
-      body: { item, is_playing: isPlaying, progress_ms: progressMs },
+      body: { item, is_playing: isPlaying, progress_ms: resProgressMs },
     } = await this.client.getMyCurrentPlayingTrack();
 
-    if (!isPlaying || !item || progressMs === null) {
+    if (!isPlaying || !item || resProgressMs === null) {
       console.log('nothing playing on spotify');
       this._stopTrack();
       this._clearTrack();
       return this._pingSpotify();
     }
+
+    const progressMs = resProgressMs + (Date.now() - now);
 
     if (!this.currentTrack || this.currentTrack.id !== item.id) {
       console.log('no track currently playing or wrong track');
