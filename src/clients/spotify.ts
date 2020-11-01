@@ -188,7 +188,7 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
     const interval = this._getInterval(kind);
     const { intervals } = interval;
 
-    for (let i = interval.activeIndex; i < intervals.length; i += 1) {
+    for (let i = 0; i < intervals.length; i += 1) {
       if (
         this.currentTrackProgress >= intervals[i].start &&
         this.currentTrackProgress < intervals[i + 1].start
@@ -319,6 +319,7 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
     }
 
     this.currentTrackStartOffset = start;
+    this.currentTrackProgress = start;
     this.currentTrackStartTime = Date.now();
 
     const intervals: (keyof AudioAnalysis)[] = [
