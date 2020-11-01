@@ -101,7 +101,12 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
   currentTrackAnalysis: AudioAnalysisWithInterval | null = null;
   currentTrackProgress: number = 0;
   currentTrackProgressInterval: NodeJS.Timer | null = null;
+  currentTrackProgressIntervalMs: number = 10;
   currentTrackStartTime: number = 0;
+  currentTrackStartOffset: number = 0;
+
+  pingTimeout: NodeJS.Timeout | null = null;
+  pingTimeoutMs: number = 1000;
 
   constructor(args: {
     accessToken: string;
@@ -200,10 +205,64 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
       throw new Error("track hasn't started!");
     }
 
-    this.currentTrackProgress = Date.now() - this.currentTrackStartTime;
+    this.currentTrackProgress =
+      this.currentTrackStartOffset + (Date.now() - this.currentTrackStartTime);
   }
 
-  async getTrack(trackId: string): Promise<void> {
+  private async _getCurrentlyPlaying(): Promise<void> {
+    const {
+      body: currentPlaying,
+    } = await this.client.getMyCurrentPlayingTrack();
+
+    if (
+      !currentPlaying.is_playing ||
+      !currentPlaying.item ||
+      currentPlaying.progress_ms === null
+    ) {
+      console.log('nothing playing on spotify');
+      this._stopTrack();
+      return this._pingSpotify();
+    }
+
+    if (!this.currentTrack || this.currentTrack.id !== currentPlaying.item.id) {
+      console.log('no track currently playing or wrong track');
+      this._stopTrack();
+      await this._getTrack(currentPlaying.item.id);
+      this._startTrack(currentPlaying.progress_ms);
+      return this._pingSpotify();
+    }
+
+    console.log('current track in sync');
+    return this._pingSpotify();
+  }
+
+  private _pingSpotify(): void {
+    this.pingTimeout = setTimeout(
+      () => this._getCurrentlyPlaying(),
+      this.pingTimeoutMs,
+    );
+  }
+
+  private _stopTrack(): void {
+    if (this.currentTrackProgressInterval) {
+      clearInterval(this.currentTrackProgressInterval);
+    }
+
+    if (this.currentTrackAnalysis) {
+      for (const analysis of Object.values(this.currentTrackAnalysis)) {
+        if (analysis.nextIntervalTimeout) {
+          clearTimeout(analysis.nextIntervalTimeout);
+        }
+      }
+    }
+
+    this.currentTrack = null;
+    this.currentTrackAnalysis = null;
+    this.currentTrackProgress = 0;
+    this.currentTrackStartTime = 0;
+  }
+
+  private async _getTrack(trackId: string): Promise<void> {
     console.log(`getting track info for trackId ${trackId}...`);
     const { body: track } = await this.client.getTrack(trackId);
     this.currentTrack = track;
@@ -244,11 +303,12 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
     this.emit('trackChange', track);
   }
 
-  async startTrack(): Promise<void> {
+  private _startTrack(start: number): void {
     if (!this.currentTrack) {
       throw new Error('current track not set!');
     }
 
+    this.currentTrackStartOffset = start;
     this.currentTrackStartTime = Date.now();
 
     const intervals: (keyof AudioAnalysis)[] = [
@@ -264,7 +324,11 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
 
     this.currentTrackProgressInterval = setInterval(
       () => this._calculateTrackProgress(),
-      10,
+      this.currentTrackProgressIntervalMs,
     );
+  }
+
+  start(): void {
+    this._pingSpotify();
   }
 }
