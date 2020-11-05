@@ -34,8 +34,8 @@ export interface Segment extends TimeInterval {
   loudness_max: number;
   loudness_max_time: number;
   loudness_end: number;
-  pitches: number;
-  timbre: number;
+  pitches: number[];
+  timbre: number[];
 }
 
 // https://developer.spotify.com/documentation/web-api/reference/tracks/get-audio-analysis/#audio-analysis-object
