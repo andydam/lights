@@ -27,6 +27,6 @@ export class Mock extends Base {
   }
 
   async setColorTransition(color: string): Promise<void> {
-    console.log(`${this.address} : color transitioning to ${color}`);
+    logger.debug(`${this.address} : color transitioning to ${color}`);
   }
 }
