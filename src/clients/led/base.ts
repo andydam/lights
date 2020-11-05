@@ -52,8 +52,6 @@ export abstract class Base extends TypedEmitter<BaseEvents> {
     const currentBrightness =
       roundUpToNearest5(this.currentBrightness * 100) / 100;
     const desiredBrightness = roundUpToNearest5(brightness * 100) / 100;
-    console.log(currentBrightness);
-    console.log(desiredBrightness);
 
     const interval =
       brightness > this.currentBrightness

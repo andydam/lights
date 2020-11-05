@@ -2,6 +2,7 @@ import noble from '@abandonware/noble';
 
 import * as Color from './color';
 import { Base } from './base';
+import { logger } from '../../utils';
 
 ////////////////////////////////////////////////////////////
 /// PRIVATE
@@ -67,8 +68,9 @@ export class BluetoothLED extends Base {
   private _findAndConnectToPeripheral = async (
     peripheral: noble.Peripheral,
   ): Promise<boolean> => {
-    console.log(
-      `found device ${peripheral.address} - ${JSON.stringify(
+    const logPrefix = 'clients.led.BluetoohLED._findAndConnectToPeripheral:';
+    logger.info(
+      `${logPrefix} found device ${peripheral.address} - ${JSON.stringify(
         peripheral.advertisement,
       )}`,
     );
@@ -77,7 +79,7 @@ export class BluetoothLED extends Base {
       return false;
     }
 
-    console.log('found matching device');
+    logger.info(`${logPrefix} found matching device`);
     await noble.stopScanningAsync();
     noble.removeListener('discover', this._findAndConnectToPeripheral);
     this.peripheral = peripheral;
