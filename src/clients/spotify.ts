@@ -3,6 +3,8 @@
 import { TypedEmitter } from 'tiny-typed-emitter';
 import spotify from 'spotify-web-api-node';
 
+import { logger } from '../utils';
+
 ////////////////////////////////////////////////////////////
 /// INTERFACES
 
@@ -191,7 +193,7 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
     for (let i = 0; i < intervals.length; i += 1) {
       if (
         this.currentTrackProgress >= intervals[i].start &&
-        this.currentTrackProgress < intervals[i + 1].start
+        this.currentTrackProgress < intervals[i].start + intervals[i].duration
       ) {
         interval.activeIndex = i;
         break;
@@ -211,13 +213,15 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
   }
 
   private async _getCurrentlyPlaying(): Promise<void> {
+    const logPrefix = 'clients.spotify.Spotify._getCurrentlyPlaying:';
+
     const now = Date.now();
     const {
       body: { item, is_playing: isPlaying, progress_ms: resProgressMs },
     } = await this.client.getMyCurrentPlayingTrack();
 
     if (!isPlaying || !item || resProgressMs === null) {
-      console.log('nothing playing on spotify');
+      logger.info(`${logPrefix} nothing playing on spotify`);
       this._stopTrack();
       this._clearTrack();
       return this._pingSpotify();
@@ -226,7 +230,7 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
     const progressMs = resProgressMs + (Date.now() - now);
 
     if (!this.currentTrack || this.currentTrack.id !== item.id) {
-      console.log('no track currently playing or wrong track');
+      logger.info(`${logPrefix} no track currently playing or wrong track`);
       this._stopTrack();
       this._clearTrack();
       await this._getTrack(item.id);
@@ -238,11 +242,11 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
       Math.abs(this.currentTrackProgress - progressMs) >
       this.currentTrackOffsetThreshold
     ) {
-      console.log('current track out of sync');
+      logger.error(`${logPrefix} current track out of sync`);
       this._stopTrack();
       this._startTrack(progressMs);
     } else {
-      console.log('current track in sync');
+      logger.info(`${logPrefix} current track in sync`);
     }
     return this._pingSpotify();
   }
@@ -276,15 +280,18 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
   }
 
   private async _getTrack(trackId: string): Promise<void> {
-    console.log(`getting track info for trackId ${trackId}...`);
+    const logPrefix = 'clients.spotify.Spotify._getTrack:';
+    logger.info(`${logPrefix} getting track info for trackId ${trackId}...`);
     const { body: track } = await this.client.getTrack(trackId);
     this.currentTrack = track;
-    console.log(`trackId ${trackId} is ${track.name} by ${track.artists}`);
-    console.log(`getting audio analysis for ${track.name}...`);
+    logger.info(
+      `${logPrefix} trackId ${trackId} is ${track.name} by ${track.artists}`,
+    );
+    logger.info(`${logPrefix} getting audio analysis for ${track.name}...`);
     const { body: analysis } = ((await this.client.getAudioAnalysisForTrack(
       trackId,
     )) as unknown) as { body: AudioAnalysis };
-    console.log(`normalizing audio analysis for ${track.name}...`);
+    logger.info(`${logPrefix} normalizing audio analysis for ${track.name}...`);
     this.currentTrackAnalysis = {
       bars: {
         activeIndex: 0,
@@ -312,7 +319,7 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
         nextIntervalTimeout: null,
       },
     };
-    console.log(`all track info for ${track.name} loaded`);
+    logger.info(`${logPrefix} all track info for ${track.name} loaded`);
     this.emit('trackChange', track);
   }
 
@@ -325,6 +332,11 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
     this.currentTrackProgress = start;
     this.currentTrackStartTime = Date.now();
 
+    this.currentTrackProgressInterval = setInterval(
+      () => this._calculateTrackProgress(),
+      this.currentTrackProgressIntervalMs,
+    );
+
     const intervals: (keyof AudioAnalysis)[] = [
       'bars',
       'beats',
@@ -335,11 +347,6 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
     for (const interval of intervals) {
       this._syncInterval(interval);
     }
-
-    this.currentTrackProgressInterval = setInterval(
-      () => this._calculateTrackProgress(),
-      this.currentTrackProgressIntervalMs,
-    );
   }
 
   start(): void {
