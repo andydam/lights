@@ -6,6 +6,8 @@ import { logger } from '../../utils';
 /// PUBLIC
 
 export class Mock extends Base {
+  commandDelayMs = 50;
+
   async start(): Promise<void> {
     this.emit('connected');
   }
@@ -18,15 +20,11 @@ export class Mock extends Base {
     logger.debug(`${this.address} : power set to ${power}`);
   }
 
-  async setBrightness(_: number): Promise<void> {}
-
-  async setColor(_: string): Promise<void> {}
-
-  async setBrightnessTransition(brightness: number): Promise<void> {
-    logger.debug(`${this.address}: brightness transitioning to ${brightness}`);
+  async setBrightness(brightness: number): Promise<void> {
+    logger.debug(`${this.address} : brightness set to ${brightness}`);
   }
 
-  async setColorTransition(color: string): Promise<void> {
-    logger.debug(`${this.address} : color transitioning to ${color}`);
+  async setColor(color: string): Promise<void> {
+    logger.debug(`${this.address} : color set to ${color}`);
   }
 }
