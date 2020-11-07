@@ -1,3 +1,5 @@
+import chalk from 'chalk';
+
 import { Base } from './base';
 
 import { logger } from '../../utils';
@@ -25,6 +27,17 @@ export class Mock extends Base {
   }
 
   async setColor(color: string): Promise<void> {
-    logger.debug(`${this.address} : color set to ${color}`);
+    const colorRegex = color.match(/rgb\((\d+), (\d+), (\d+)\)/);
+    if (!colorRegex) {
+      throw new Error(`${this.address} : unexpected color ${color}!`);
+    }
+
+    logger.debug(
+      `${this.address} : color set to ${chalk.rgb(
+        Number(colorRegex[1]),
+        Number(colorRegex[2]),
+        Number(colorRegex[3]),
+      )(color)}`,
+    );
   }
 }
