@@ -63,13 +63,18 @@ export abstract class Base extends TypedEmitter<BaseEvents> {
     end: string,
     lengthMs: number,
   ): Promise<void> {
+    const startTime = Date.now();
+    const endTime = startTime + lengthMs;
     const interpolated = d3Interpolate.interpolateRgb(start, end);
-    const intervals = Math.floor(lengthMs / this.commandDelayMs);
 
-    for (let i = 0; i < 1; i += 1 / intervals) {
-      const color = interpolated(i);
-      this.setColor(color);
+    let currentTime = Date.now();
+    while (currentTime < endTime) {
+      const elapsedTime =  currentTime - startTime;
+      const interpolateValue = elapsedTime / lengthMs;
+      const color = interpolated(interpolateValue);
+      await this.setColor(color);
       await sleep(this.commandDelayMs);
+      currentTime = Date.now();
     }
   }
 }
