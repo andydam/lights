@@ -86,11 +86,13 @@ const normalizeIntervals = <T extends TimeInterval>(
 /// PUBLIC
 
 interface SpotifyEvents {
+  newBar: (current: TimeInterval, next: TimeInterval | null) => void;
+  newBeat: (current: TimeInterval, next: TimeInterval | null) => void;
+  newSection: (current: Section, next: Section | null) => void;
+  newSegment: (current: Segment, next: Segment | null) => void;
+  newTatum: (current: TimeInterval, next: TimeInterval | null) => void;
   trackChange: (track: SpotifyApi.SingleTrackResponse) => void;
-  interval: <T extends keyof AudioAnalysisWithInterval>(
-    kind: T,
-    interval: AudioAnalysisWithInterval[T]['intervals'][0],
-  ) => void;
+  trackStopped: () => void;
 }
 
 export class Spotify extends TypedEmitter<SpotifyEvents> {
@@ -141,9 +143,9 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
     return this.currentTrackAnalysis[kind];
   }
 
-  private _getActiveInterval<T extends keyof AudioAnalysisWithInterval>(
+  private _getActiveInterval<T extends keyof AudioAnalysis>(
     kind: T,
-  ): AudioAnalysisWithInterval[T]['intervals'][0] {
+  ): AudioAnalysis[T][0] {
     const interval = this._getInterval(kind);
     return interval.intervals[interval.activeIndex];
   }
@@ -171,8 +173,34 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
 
   private _fireInterval(kind: keyof AudioAnalysis): void {
     const activeInterval = this._getActiveInterval(kind);
+    const { activeIndex, intervals } = this._getInterval(kind);
+    const nextInterval = intervals[activeIndex + 1] || null;
 
-    this.emit('interval', kind, activeInterval);
+    switch (kind) {
+      case 'bars':
+        this.emit('newBar', activeInterval, nextInterval);
+        break;
+      case 'beats':
+        this.emit('newBeat', activeInterval, nextInterval);
+        break;
+      case 'sections':
+        this.emit(
+          'newSection',
+          (activeInterval as unknown) as Section,
+          (nextInterval as unknown) as Section,
+        );
+        break;
+      case 'segments':
+        this.emit(
+          'newSegment',
+          (activeInterval as unknown) as Segment,
+          (nextInterval as unknown) as Segment,
+        );
+        break;
+      case 'tatums':
+        this.emit('newTatum', activeInterval, nextInterval);
+        break;
+    }
 
     this._incrementInterval(kind);
   }
@@ -222,6 +250,9 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
 
     if (!isPlaying || !item || resProgressMs === null) {
       logger.info(`${logPrefix} nothing playing on spotify`);
+      if (this.currentTrack) {
+        this.emit('trackStopped');
+      }
       this._stopTrack();
       this._clearTrack();
       return this._pingSpotify();
