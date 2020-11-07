@@ -68,7 +68,7 @@ export abstract class Base extends TypedEmitter<BaseEvents> {
     const interpolated = d3Interpolate.interpolateRgb(start, end);
 
     let currentTime = Date.now();
-    while (currentTime < endTime) {
+    while (currentTime < endTime - this.commandDelayMs) {
       const elapsedTime =  currentTime - startTime;
       const interpolateValue = elapsedTime / lengthMs;
       const color = interpolated(interpolateValue);
