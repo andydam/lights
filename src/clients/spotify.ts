@@ -78,7 +78,7 @@ const normalizeIntervals = <T extends TimeInterval>(
   return normalizedIntervals.map((interval) => ({
     ...interval,
     start: interval.start * 1000,
-    duration: interval.start * 1000,
+    duration: interval.duration * 1000,
   }));
 };
 
