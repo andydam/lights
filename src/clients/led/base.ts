@@ -48,13 +48,18 @@ export abstract class Base extends TypedEmitter<BaseEvents> {
       throw new Error(`invalid end brightness ${end}!`);
     }
 
+    const startTime = Date.now();
+    const endTime = startTime + lengthMs;
     const interpolated = d3Interpolate.interpolateNumber(start, end);
-    const intervals = Math.floor(lengthMs / this.commandDelayMs);
 
-    for (let i = 0; i < 1; i += 1 / intervals) {
-      const brightness = interpolated(i);
-      this.setBrightness(brightness);
+    let currentTime = Date.now();
+    while (currentTime < endTime - this.commandDelayMs) {
+      const elapsedTime =  currentTime - startTime;
+      const interpolateValue = elapsedTime / lengthMs;
+      const brightness = interpolated(interpolateValue);
+      await this.setBrightness(brightness);
       await sleep(this.commandDelayMs);
+      currentTime = Date.now();
     }
   }
 
