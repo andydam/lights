@@ -1,6 +1,8 @@
 import * as d3Interpolate from 'd3-interpolate';
 import { TypedEmitter } from 'tiny-typed-emitter';
 
+import { sleep } from '../../utils';
+
 ////////////////////////////////////////////////////////////
 /// INTERFACES
 
@@ -22,6 +24,7 @@ const roundUpToNearest5 = (x: number): number => Math.ceil(x / 5) * 5;
 export abstract class Base extends TypedEmitter<BaseEvents> {
   address: string;
 
+  abstract commandDelayMs: number;
   brightnessInterval = 0.05;
   colorSteps = 500;
   currentBrightness: number | null = null;
@@ -83,5 +86,26 @@ export abstract class Base extends TypedEmitter<BaseEvents> {
     }
 
     this.currentColor = color;
+  }
+
+  async transitionBrightness(
+    start: number,
+    end: number,
+    lengthMs: number,
+  ): Promise<void> {
+    if (start < 0 || start > 1) {
+      throw new Error(`invalid start brightness ${start}!`);
+    } else if (end < 0 || end > 1) {
+      throw new Error(`invalid end brightness ${end}!`);
+    }
+
+    const interpolated = d3Interpolate.interpolateNumber(start, end);
+    const intervals = lengthMs / this.commandDelayMs;
+
+    for (let i = 0; i <= 1 + 1 / intervals; i += 1 / intervals) {
+      const brightness = interpolated(i);
+      this.setBrightness(brightness);
+      await sleep(this.commandDelayMs);
+    }
   }
 }
