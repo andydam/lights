@@ -100,11 +100,26 @@ export abstract class Base extends TypedEmitter<BaseEvents> {
     }
 
     const interpolated = d3Interpolate.interpolateNumber(start, end);
-    const intervals = lengthMs / this.commandDelayMs;
+    const intervals = Math.floor(lengthMs / this.commandDelayMs);
 
-    for (let i = 0; i <= 1 + 1 / intervals; i += 1 / intervals) {
+    for (let i = 0; i < 1; i += 1 / intervals) {
       const brightness = interpolated(i);
       this.setBrightness(brightness);
+      await sleep(this.commandDelayMs);
+    }
+  }
+
+  async transitionColor(
+    start: string,
+    end: string,
+    lengthMs: number,
+  ): Promise<void> {
+    const interpolated = d3Interpolate.interpolateRgb(start, end);
+    const intervals = Math.floor(lengthMs / this.commandDelayMs);
+
+    for (let i = 0; i < 1; i += 1 / intervals) {
+      const color = interpolated(i);
+      this.setColor(color);
       await sleep(this.commandDelayMs);
     }
   }
