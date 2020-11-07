@@ -7,6 +7,7 @@
   "private": true,
   "dependencies": {
     "@abandonware/noble": "^1.9.2-10",
+    "chalk": "^4.1.0",
     "d3": "^6.2.0",
     "d3-interpolate": "^2.0.1",
     "spotify-web-api-node": "^4.0.0",
