@@ -26,6 +26,7 @@ const UUID_CONTROL_CHARACTERISTIC = '000102030405060708090a0b0c0d2b11';
 
 export class BluetoothLED extends Base {
   characteristic?: noble.Characteristic;
+  commandDelayMs = 100;
   disconnectedCalled = false;
   peripheral?: noble.Peripheral;
 
@@ -150,10 +151,9 @@ export class BluetoothLED extends Base {
     await this._send(LedCommand.POWER, power ? 0x1 : 0x0);
   }
 
-  async setBrightness(value: number): Promise<void> {
-    const brightness = value / 100;
+  async setBrightness(brightness: number): Promise<void> {
     if (brightness > 1 || brightness < 0) {
-      throw new Error(`invalid brightness ${value}!`);
+      throw new Error(`invalid brightness ${brightness}!`);
     }
     await this._send(LedCommand.BRIGHTNESS, Math.floor(brightness * 0xff));
   }
