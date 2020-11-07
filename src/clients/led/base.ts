@@ -14,21 +14,12 @@ interface BaseEvents {
 }
 
 ////////////////////////////////////////////////////////////
-/// PRIVATE
-
-const roundUpToNearest5 = (x: number): number => Math.ceil(x / 5) * 5;
-
-////////////////////////////////////////////////////////////
 /// PUBLIC
 
 export abstract class Base extends TypedEmitter<BaseEvents> {
   address: string;
 
   abstract commandDelayMs: number;
-  brightnessInterval = 0.05;
-  colorSteps = 500;
-  currentBrightness: number | null = null;
-  currentColor: string | null = null;
 
   constructor(address: string) {
     super();
@@ -45,48 +36,6 @@ export abstract class Base extends TypedEmitter<BaseEvents> {
   abstract async setBrightness(brightness: number): Promise<void>;
 
   abstract async setColor(color: string): Promise<void>;
-
-  async setBrightnessTransition(brightness: number): Promise<void> {
-    if (!this.currentBrightness) {
-      this.currentBrightness = brightness;
-      return this.setBrightness(brightness);
-    }
-
-    const currentBrightness =
-      roundUpToNearest5(this.currentBrightness * 100) / 100;
-    const desiredBrightness = roundUpToNearest5(brightness * 100) / 100;
-
-    const interval =
-      brightness > this.currentBrightness
-        ? this.brightnessInterval
-        : -this.brightnessInterval;
-    const numIntervals =
-      (currentBrightness - desiredBrightness) / this.brightnessInterval;
-
-    for (let i = 0; i < numIntervals; i += 1) {
-      await this.setBrightness(currentBrightness + interval * i);
-    }
-    this.currentBrightness = brightness;
-  }
-
-  async setColorTransition(color: string): Promise<void> {
-    if (!this.currentColor) {
-      this.currentColor = color;
-      return this.setColor(color);
-    }
-
-    const interpolatedColors = d3Interpolate.interpolateHclLong(
-      this.currentColor,
-      color,
-    );
-
-    for (let i = 0; i <= 1; i += 1 / this.colorSteps) {
-      const desiredColor = interpolatedColors(i);
-      await this.setColor(desiredColor);
-    }
-
-    this.currentColor = color;
-  }
 
   async transitionBrightness(
     start: number,
