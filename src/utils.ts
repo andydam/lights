@@ -3,6 +3,9 @@ import * as winston from 'winston';
 ////////////////////////////////////////////////////////////
 /// PUBLIC
 
+export const average = (arr: number[]): number =>
+  arr.reduce((a, b) => a + b, 0) / arr.length;
+
 export const sleep = (delay: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, delay));
 
@@ -15,7 +18,7 @@ export const logger = winston.createLogger({
       return `${ts} ${level}: ${message} ${
         Object.keys(args).length ? JSON.stringify(args, null, 2) : ''
       }`;
-    }),
+    })
   ),
   transports: [
     new winston.transports.Console({

@@ -3,10 +3,7 @@ import { BluetoothLED } from './clients/led';
 import { Mock } from './clients/led/mock';
 import * as Settings from './settings';
 import { Spotify } from './clients/spotify';
-import { logger } from './utils';
-
-const average = (arr: number[]): number =>
-  arr.reduce((a, b) => a + b, 0) / arr.length;
+import { average, logger } from './utils';
 
 async function main(): Promise<void> {
   const lightClients: Base[] = [];
