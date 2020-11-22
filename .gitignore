@@ -116,4 +116,7 @@ typings/
 # DynamoDB Local files
 .dynamodb/
 
+dist
+.vscode
+
 # End of https://www.gitignore.io/api/node,macos

@@ -1,5 +1,5 @@
 {
-  "exec": "yarn build && node --inspect=0.0.0.0:7000 --nolazy ./dist/index.js",
+  "exec": "yarn build && node --inspect=0.0.0.0:7000 --nolazy ./dist/src/index.js",
   "ignore": ["'*.test.ts"],
   "watch": ["./src"],
   "verbose": true,
