@@ -1,0 +1,13 @@
+{
+  "colors": {
+    "start": "red",
+    "end": "blue",
+    "interpolator": "interpolateHslLong"
+  },
+  "debug": false,
+  "lightbulbMACAddresses": [],
+  "spotify": {
+    "clientId": "",
+    "clientSecret": ""
+  }
+}
