@@ -1,5 +1,11 @@
 /// <reference types="spotify-api" />
 
+import * as buffer from 'buffer';
+import express from 'express';
+import fetch from 'node-fetch';
+import open from 'open';
+import * as url from 'url';
+
 import { TypedEmitter } from 'tiny-typed-emitter';
 import spotify from 'spotify-web-api-node';
 
@@ -60,7 +66,7 @@ type AudioAnalysisWithInterval = {
 
 const normalizeIntervals = <T extends TimeInterval>(
   track: SpotifyApi.SingleTrackResponse,
-  intervals: T[],
+  intervals: T[]
 ): T[] => {
   const normalizedIntervals = [...intervals];
 
@@ -96,7 +102,8 @@ interface SpotifyEvents {
 }
 
 export class Spotify extends TypedEmitter<SpotifyEvents> {
-  accessToken: string;
+  accessToken: string | null = null;
+  refreshToken: string | null = null;
   client: spotify;
   clientId: string;
   clientSecret: string;
@@ -113,28 +120,22 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
   pingTimeout: NodeJS.Timeout | null = null;
   pingTimeoutMs: number = 1000;
 
-  constructor(args: {
-    accessToken: string;
-    clientId: string;
-    clientSecret: string;
-  }) {
+  constructor(args: { clientId: string; clientSecret: string }) {
     super();
 
-    const { accessToken, clientId, clientSecret } = args;
+    const { clientId, clientSecret } = args;
 
-    this.accessToken = accessToken;
     this.clientId = clientId;
     this.clientSecret = clientSecret;
 
     this.client = new spotify({
-      accessToken,
       clientId,
       clientSecret,
     });
   }
 
   private _getInterval<T extends keyof AudioAnalysisWithInterval>(
-    kind: T,
+    kind: T
   ): AudioAnalysisWithInterval[T] {
     if (!this.currentTrackAnalysis) {
       throw new Error('current track not set!');
@@ -144,7 +145,7 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
   }
 
   private _getActiveInterval<T extends keyof AudioAnalysis>(
-    kind: T,
+    kind: T
   ): AudioAnalysis[T][0] {
     const interval = this._getInterval(kind);
     return interval.intervals[interval.activeIndex];
@@ -187,14 +188,14 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
         this.emit(
           'newSection',
           (activeInterval as unknown) as Section,
-          (nextInterval as unknown) as Section,
+          (nextInterval as unknown) as Section
         );
         break;
       case 'segments':
         this.emit(
           'newSegment',
           (activeInterval as unknown) as Segment,
-          (nextInterval as unknown) as Segment,
+          (nextInterval as unknown) as Segment
         );
         break;
       case 'tatums':
@@ -210,7 +211,7 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
 
     interval.nextIntervalTimeout = setTimeout(
       () => this._fireInterval(kind),
-      this._calculateNextTimeout(kind),
+      this._calculateNextTimeout(kind)
     );
   }
 
@@ -285,7 +286,7 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
   private _pingSpotify(): void {
     this.pingTimeout = setTimeout(
       () => this._getCurrentlyPlaying(),
-      this.pingTimeoutMs,
+      this.pingTimeoutMs
     );
   }
 
@@ -316,11 +317,11 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
     const { body: track } = await this.client.getTrack(trackId);
     this.currentTrack = track;
     logger.info(
-      `${logPrefix} trackId ${trackId} is ${track.name} by ${track.artists}`,
+      `${logPrefix} trackId ${trackId} is ${track.name} by ${track.artists}`
     );
     logger.info(`${logPrefix} getting audio analysis for ${track.name}...`);
     const { body: analysis } = ((await this.client.getAudioAnalysisForTrack(
-      trackId,
+      trackId
     )) as unknown) as { body: AudioAnalysis };
     logger.info(`${logPrefix} normalizing audio analysis for ${track.name}...`);
     this.currentTrackAnalysis = {
@@ -365,7 +366,7 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
 
     this.currentTrackProgressInterval = setInterval(
       () => this._calculateTrackProgress(),
-      this.currentTrackProgressIntervalMs,
+      this.currentTrackProgressIntervalMs
     );
 
     const intervals: (keyof AudioAnalysis)[] = [
@@ -382,5 +383,78 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
 
   start(): void {
     this._pingSpotify();
+  }
+
+  async getAccessToken(): Promise<void> {
+    const logPrefix = 'clients.spotify.Spotify._getCurrentlyPlaying:';
+
+    const authorizeUrl = new url.URL(
+      '/authorize',
+      'https://accounts.spotify.com'
+    );
+    authorizeUrl.searchParams.append('response_type', 'code');
+    authorizeUrl.searchParams.append('client_id', this.clientId);
+    authorizeUrl.searchParams.append('redirect_uri', 'http://localhost:8082/');
+    authorizeUrl.searchParams.append('scopes', 'user-read-currently-playing');
+
+    logger.info(`${logPrefix} starting server to wait for code`);
+
+    const app = express();
+    const server = app.listen(8082);
+    let code: string | null = null;
+
+    await new Promise<void>((resolve) => {
+      app.use((req, res) => {
+        code = req.query.code as string;
+        res.sendStatus(200);
+        resolve();
+      });
+
+      logger.info(
+        `${logPrefix} launching browser to authenticate with spotify`
+      );
+      open(authorizeUrl.toString());
+    });
+
+    server.close();
+
+    if (!code) {
+      throw new Error('unable to get authorization code!');
+    }
+
+    logger.info(
+      `${logPrefix} authorization code aquired, exchanging code for token`
+    );
+
+    const body = new url.URLSearchParams();
+    body.append('grant_type', 'authorization_code');
+    body.append('code', code);
+    body.append('redirect_uri', 'http://localhost:8082/');
+
+    const tokenRequest = await fetch('https://accounts.spotify.com/api/token', {
+      body,
+      headers: {
+        authorization: `Basic ${buffer.Buffer.from(
+          `${this.clientId}:${this.clientSecret}`
+        ).toString('base64')}`,
+      },
+      method: 'POST',
+    });
+
+    const tokenBody: {
+      access_token: string;
+      refresh_token: string;
+    } = await tokenRequest.json();
+
+    if (!tokenBody.access_token || !tokenBody.refresh_token) {
+      throw new Error('unable to exchange authorization code for tokens!');
+    }
+
+    logger.info(`${logPrefix} tokens acquired`);
+
+    this.accessToken = tokenBody.access_token;
+    this.refreshToken = tokenBody.refresh_token;
+    this.client.setAccessToken(this.accessToken);
+    this.client.setRefreshToken(this.refreshToken);
   }
 }
