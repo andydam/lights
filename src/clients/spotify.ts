@@ -395,7 +395,7 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
     authorizeUrl.searchParams.append('response_type', 'code');
     authorizeUrl.searchParams.append('client_id', this.clientId);
     authorizeUrl.searchParams.append('redirect_uri', 'http://localhost:8082/');
-    authorizeUrl.searchParams.append('scopes', 'user-read-currently-playing');
+    authorizeUrl.searchParams.append('scope', 'user-read-currently-playing');
 
     logger.info(`${logPrefix} starting server to wait for code`);
 
@@ -423,7 +423,7 @@ export class Spotify extends TypedEmitter<SpotifyEvents> {
     }
 
     logger.info(
-      `${logPrefix} authorization code aquired, exchanging code for token`
+      `${logPrefix} authorization code acquired, exchanging code for token`
     );
 
     const body = new url.URLSearchParams();
