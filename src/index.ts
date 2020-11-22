@@ -2,10 +2,44 @@ import { Base } from './clients/led/base';
 import { BluetoothLED } from './clients/led';
 import { Mock } from './clients/led/mock';
 import * as Settings from './settings';
-import { Spotify } from './clients/spotify';
+import { Segment, Spotify } from './clients/spotify';
 import { average, logger } from './utils';
 
-async function main(): Promise<void> {
+export const onNewSegment = (lightClients: Base[]) => async (
+  current: Segment,
+  next: Segment | null
+) => {
+  if (!next) return;
+
+  const { pitches: currentPitches, duration } = current;
+  const { pitches: nextPitches } = next;
+
+  const pitchesInLight = currentPitches.length / lightClients.length;
+
+  const [currentColors, nextColors] = [currentPitches, nextPitches].map(
+    (pitches) =>
+      lightClients.map((_, i) => {
+        const end = pitchesInLight * (i + 1);
+        const start = end - pitchesInLight;
+        return Settings.getInterpolator()(average(pitches.slice(start, end)));
+      })
+  );
+
+  await Promise.all([
+    ...lightClients.map((light, i) =>
+      light.transitionColor(currentColors[i], nextColors[i], duration * 0.95)
+    ),
+    ...lightClients.map((lights) =>
+      lights.transitionBrightness(
+        Math.abs(current.loudness_start + 50) / 100,
+        Math.abs(next.loudness_start + 50) / 100,
+        duration * 0.95
+      )
+    ),
+  ]);
+};
+
+const main = async (): Promise<void> => {
   const lightClients: Base[] = [];
 
   for (const lightbulbMACAddress of Settings.Settings.lightbulbMACAddresses) {
@@ -27,45 +61,9 @@ async function main(): Promise<void> {
   });
   await spotifyClient.getAccessToken();
 
-  const interpolator = Settings.getInterpolator();
-  let segmentTransitioning = false;
-  spotifyClient.on('newSegment', async (current, next) => {
-    if (segmentTransitioning || !next) {
-      logger.warn('segment skipped');
-      return;
-    }
-    segmentTransitioning = true;
-
-    const { pitches: currentPitches, duration } = current;
-    const { pitches: nextPitches } = next;
-
-    const pitchesInLight = 12 / lightClients.length;
-
-    const [currentColors, nextColors] = [currentPitches, nextPitches].map(
-      (pitches) =>
-        lightClients.map((_, i) => {
-          const end = pitchesInLight * (i + 1);
-          const start = end - pitchesInLight;
-          return interpolator(average(pitches.slice(start, end)));
-        })
-    );
-
-    await Promise.all([
-      ...lightClients.map((light, i) =>
-        light.transitionColor(currentColors[i], nextColors[i], duration * 0.95)
-      ),
-      ...lightClients.map((lights) =>
-        lights.transitionBrightness(
-          Math.abs(current.loudness_start + 50) / 100,
-          Math.abs(next.loudness_start + 50) / 100,
-          duration * 0.95
-        )
-      ),
-    ]);
-    segmentTransitioning = false;
-  });
+  spotifyClient.on('newSegment', onNewSegment(lightClients));
 
   await spotifyClient.start();
-}
+};
 
 void main().catch(logger.error);
