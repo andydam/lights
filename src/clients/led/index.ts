@@ -26,7 +26,7 @@ const UUID_CONTROL_CHARACTERISTIC = '000102030405060708090a0b0c0d2b11';
 
 export class BluetoothLED extends Base {
   characteristic?: noble.Characteristic;
-  commandDelayMs = 100;
+  commandDelayMs = 25;
   disconnectedCalled = false;
   peripheral?: noble.Peripheral;
 
